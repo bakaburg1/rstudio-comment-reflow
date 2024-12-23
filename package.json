@@ -9,20 +9,26 @@
   "categories": [
     "Formatters"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:rstudio-comment-reflow.reflowComment",
+    "onLanguage:r",
+    "onLanguage:python",
+    "onLanguage:typescript",
+    "onLanguage:javascript"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "rstudio-comment-reflow.reflowComment",
-        "title": "Reflow Comment"
+        "title": "RStudio Reflow Comment"
       }
     ],
     "keybindings": [
       {
         "command": "rstudio-comment-reflow.reflowComment",
-        "key": "ctrl+shift+'",
-        "mac": "ctrl+shift+'"
+        "key": "ctrl+shift+[Quote]",
+        "when": "editorTextFocus"
       }
     ]
   },
