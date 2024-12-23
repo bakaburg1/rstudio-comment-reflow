@@ -13,9 +13,15 @@ interface CommentBlock {
  * Activates the extension
  */
 export function activate(context: vscode.ExtensionContext) {
+    // Log when the extension is activated
+    console.log('RStudio Comment Reflow extension is now active');
+
     let disposable = vscode.commands.registerCommand('rstudio-comment-reflow.reflowComment', () => {
+        console.log('Reflow Comment command triggered');
+        
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
+            console.log('No active editor found');
             return;
         }
 
@@ -93,14 +99,17 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
     const lines = [];
     let prefix = '';
     let originalIndentation = '';
+    let isRoxygen = false;
 
     for (let i = startLine; i <= endLine; i++) {
         const line = document.lineAt(i);
         const text = line.text;
 
         if (i === startLine) {
+            // Detect if this is a Roxygen comment block
+            isRoxygen = text.trim().startsWith("#'");
             // Detect the comment prefix and indentation from the first line
-            const match = text.match(/^(\s*)([#/*]+\s*|\*\s+)/);
+            const match = text.match(/^(\s*)([#']+\s*|\*\s+)/);
             if (!match) {
                 return null;
             }
@@ -109,21 +118,21 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
         }
 
         // Remove the prefix and any leading/trailing whitespace
-        let content = text.substring(text.indexOf(prefix) + prefix.length).trim();
-        
-        // Handle Roxygen tags
-        if (content.startsWith('@') && !content.startsWith('@@')) {
-            // Start a new paragraph for Roxygen tags
-            if (lines.length > 0) {
-                lines.push('');
+        let content = text;
+        if (isRoxygen) {
+            const roxyMatch = text.match(/^(\s*#'\s*)(.*)/);
+            if (roxyMatch) {
+                content = roxyMatch[2];
             }
+        } else {
+            content = text.substring(text.indexOf(prefix) + prefix.length).trim();
         }
-
+        
         lines.push(content);
     }
 
     return {
-        prefix,
+        prefix: isRoxygen ? "#' " : prefix,
         content: lines,
         originalIndentation
     };
@@ -138,24 +147,28 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
     let currentParagraph: string[] = [];
     let inCodeBlock = false;
     let inList = false;
+    let isRoxygenTag = false;
+    let lastRoxygenTag = '';
 
     // Process each line
     for (const line of block.content) {
         // Handle empty lines - they separate paragraphs
         if (line.trim().length === 0) {
             if (currentParagraph.length > 0) {
-                result += formatParagraph(currentParagraph, block, actualMaxWidth, inList) + '\n';
+                result += formatParagraph(currentParagraph, block, actualMaxWidth, inList, isRoxygenTag) + '\n';
                 currentParagraph = [];
             }
             result += block.originalIndentation + block.prefix + '\n';
             inList = false;
+            isRoxygenTag = false;
+            lastRoxygenTag = '';
             continue;
         }
 
         // Handle code blocks (marked with ```)
         if (line.trim().startsWith('```')) {
             if (currentParagraph.length > 0) {
-                result += formatParagraph(currentParagraph, block, actualMaxWidth, inList) + '\n';
+                result += formatParagraph(currentParagraph, block, actualMaxWidth, inList, isRoxygenTag) + '\n';
                 currentParagraph = [];
             }
             inCodeBlock = !inCodeBlock;
@@ -171,10 +184,20 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
 
         // Handle Roxygen tags
         if (line.startsWith('@') && !line.startsWith('@@')) {
+            const currentTag = line.split(/\s+/)[0]; // Get the tag part (e.g., @param, @return)
+            
             if (currentParagraph.length > 0) {
-                result += formatParagraph(currentParagraph, block, actualMaxWidth, inList) + '\n';
+                result += formatParagraph(currentParagraph, block, actualMaxWidth, inList, isRoxygenTag) + '\n';
                 currentParagraph = [];
             }
+
+            // Add a newline between different tags, but only if we're already in a Roxygen block
+            if (isRoxygenTag && lastRoxygenTag && currentTag !== lastRoxygenTag) {
+                result += block.originalIndentation + block.prefix + '\n';
+            }
+
+            isRoxygenTag = true;
+            lastRoxygenTag = currentTag;
             currentParagraph.push(line);
             continue;
         }
@@ -182,12 +205,12 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
         // Handle bullet points
         if (line.match(/^\s*[-*]\s/)) {
             if (!inList && currentParagraph.length > 0) {
-                result += formatParagraph(currentParagraph, block, actualMaxWidth, false) + '\n';
+                result += formatParagraph(currentParagraph, block, actualMaxWidth, false, isRoxygenTag) + '\n';
                 currentParagraph = [];
             }
             inList = true;
             if (currentParagraph.length > 0) {
-                result += formatParagraph(currentParagraph, block, actualMaxWidth, true) + '\n';
+                result += formatParagraph(currentParagraph, block, actualMaxWidth, true, isRoxygenTag) + '\n';
                 currentParagraph = [];
             }
             result += block.originalIndentation + block.prefix + line + '\n';
@@ -199,7 +222,7 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
 
     // Format any remaining paragraph
     if (currentParagraph.length > 0) {
-        result += formatParagraph(currentParagraph, block, actualMaxWidth, inList);
+        result += formatParagraph(currentParagraph, block, actualMaxWidth, inList, isRoxygenTag);
     }
 
     return result.trimEnd();
@@ -208,20 +231,41 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
 /**
  * Formats a paragraph to fit within the specified width
  */
-function formatParagraph(paragraph: string[], block: CommentBlock, maxWidth: number, isList: boolean): string {
-    // Join all lines and split into words
-    const words = paragraph.join(' ').split(/\s+/);
+function formatParagraph(paragraph: string[], block: CommentBlock, maxWidth: number, isList: boolean, isRoxygenTag: boolean): string {
+    // For Roxygen tags, preserve the tag at the start
+    let prefix = '';
+    let words: string[] = [];
+    
+    if (isRoxygenTag) {
+        // Extract the tag part (e.g., "@param name") and the description
+        const firstLine = paragraph[0];
+        const tagMatch = firstLine.match(/^(@\w+(?:\s+\S+)?)/);
+        
+        if (tagMatch) {
+            prefix = tagMatch[1] + ' ';
+            // Remove the tag part from the first line and combine with rest
+            const remainingText = firstLine.substring(prefix.length).trim() + ' ' + 
+                                paragraph.slice(1).join(' ');
+            words = remainingText.split(/\s+/).filter(w => w.length > 0);
+        } else {
+            words = paragraph.join(' ').split(/\s+/).filter(w => w.length > 0);
+        }
+    } else {
+        words = paragraph.join(' ').split(/\s+/).filter(w => w.length > 0);
+    }
+
     const lines: string[] = [];
-    let currentLine = '';
+    let currentLine = prefix; // Start with the Roxygen tag if present
 
     for (const word of words) {
-        if (currentLine.length + word.length + 1 <= maxWidth) {
+        if (currentLine.length + word.length + (currentLine.length > 0 ? 1 : 0) <= maxWidth) {
             currentLine += (currentLine.length === 0 ? '' : ' ') + word;
         } else {
             if (currentLine.length > 0) {
                 lines.push(currentLine);
             }
-            currentLine = word;
+            // For continuation lines in Roxygen tags, add appropriate indentation
+            currentLine = isRoxygenTag && lines.length > 0 ? '  ' + word : word;
         }
     }
     if (currentLine.length > 0) {
