@@ -35,8 +35,6 @@ export function activate(context: vscode.ExtensionContext) {
         reflowComment(editor);
     });
 
-    // Log registered keybinding
-    outputChannel.appendLine('Registered keybinding: ctrl+shift+BracketLeft');
     context.subscriptions.push(disposable);
 }
 
