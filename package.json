@@ -2,7 +2,7 @@
   "name": "rstudio-comment-reflow",
   "displayName": "RStudio Comment Reflow",
   "description": "RStudio-style comment reflow functionality for VS Code",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "engines": {
     "vscode": "^1.85.0"
   },
