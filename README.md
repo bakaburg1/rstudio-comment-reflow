@@ -64,6 +64,7 @@ After:
 ```r
 #' @param x A very long parameter description that exceeds the word wrap column
 #'   and needs to be reflowed while preserving the Roxygen tag formatting.
+#' 
 #' @return Another long description that needs to be reflowed while maintaining
 #'   proper documentation structure.
 ```
@@ -82,18 +83,10 @@ After:
 
 1. Download the latest `.vsix` file from the [releases page](https://github.com/bakaburg1/rstudio-comment-reflow/releases)
 2. Open VS Code
-3. Press `Cmd+Shift+X` (Mac) or `Ctrl+Shift+X` (Windows/Linux) to open the Extensions view
-4. Click on the three dots (...) at the top of the Extensions view
-5. Select "Install from VSIX..."
-6. Navigate to the downloaded `.vsix` file and select it
-7. Reload VS Code when prompted
-
-### Building from Source
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/bakaburg1/rstudio-comment-reflow.git
-   ```
+3. Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux) to open the Command Palette
+4. Type "Install from VSIX" and select the command
+5. Navigate to the downloaded `.vsix` file and select it
+6. Then use `Cmd+Shift+P` or `Ctrl+Shift+P` and type "Reload Window" to reload VS Code
 
 ## Contributing
 
