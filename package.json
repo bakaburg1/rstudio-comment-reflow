@@ -21,8 +21,8 @@
     "keybindings": [
       {
         "command": "rstudio-comment-reflow.reflowComment",
-        "key": "ctrl+shift+/",
-        "mac": "cmd+shift+/"
+        "key": "ctrl+shift+'",
+        "mac": "ctrl+shift+'"
       }
     ]
   },
@@ -44,5 +44,5 @@
     "url": "https://github.com/bakaburg1/rstudio-comment-reflow.git"
   },
   "license": "AGPL-3.0",
-  "publisher": "dambrosio-dev"
+  "publisher": "Bakaburg1"
 }

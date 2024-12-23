@@ -16,7 +16,7 @@ This extension adapts code from [Posit RStudio](https://github.com/rstudio/rstud
 ## Usage
 
 1. Place your cursor inside a comment block or select multiple comment lines
-2. Press `Cmd+Shift+/` (Mac) or `Ctrl+Shift+/` (Windows/Linux)
+2. Press `Ctrl+Shift+'`
 3. The comment will be reflowed to fit within your editor's word wrap column
 
 ## Configuration
