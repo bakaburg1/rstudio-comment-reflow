@@ -50,5 +50,9 @@
     "url": "https://github.com/bakaburg1/rstudio-comment-reflow.git"
   },
   "license": "AGPL-3.0",
-  "publisher": "Bakaburg1"
+  "publisher": "Bakaburg1",
+  "homepage": "https://github.com/bakaburg1/rstudio-comment-reflow",
+  "bugs": {
+    "url": "https://github.com/bakaburg1/rstudio-comment-reflow/issues"
+  }
 }
