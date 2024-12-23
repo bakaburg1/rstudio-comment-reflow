@@ -1,0 +1,48 @@
+{
+  "name": "rstudio-comment-reflow",
+  "displayName": "RStudio Comment Reflow",
+  "description": "RStudio-style comment reflow functionality for VS Code",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Formatters"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "rstudio-comment-reflow.reflowComment",
+        "title": "Reflow Comment"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "rstudio-comment-reflow.reflowComment",
+        "key": "ctrl+shift+/",
+        "mac": "cmd+shift+/"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bakaburg1/rstudio-comment-reflow.git"
+  },
+  "license": "AGPL-3.0",
+  "publisher": "dambrosio-dev"
+}

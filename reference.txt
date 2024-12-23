@@ -1,0 +1,283 @@
+@Handler
+   void onReflowComment()
+   {
+      withActiveEditor((disp) ->
+      {
+         reflowComment(disp);
+      });
+   }
+
+   void reflowComment(DocDisplay display)
+   {
+      if (DocumentMode.isSelectionInRMode(display) ||
+          DocumentMode.isSelectionInPythonMode(display))
+      {
+         doReflowComment(display, "(#)");
+      }
+      else if (DocumentMode.isSelectionInCppMode(display))
+      {
+         String currentLine = display.getLine(
+                                    display.getCursorPosition().getRow());
+         if (currentLine.startsWith(" *"))
+            doReflowComment(display, "( \\*[^/])", false);
+         else
+            doReflowComment(display, "(//)");
+      }
+      else if (DocumentMode.isSelectionInTexMode(display))
+         doReflowComment(display, "(%)");
+      else if (DocumentMode.isSelectionInMarkdownMode(display))
+         doReflowComment(display, "()");
+      else if (display.getFileType().isText())
+         doReflowComment(display, "()");
+   }
+
+   public void reflowText()
+   {
+      if (docDisplay_.getSelectionValue().isEmpty())
+         docDisplay_.setSelectionRange(
+               Range.fromPoints(
+                     Position.create(docDisplay_.getCursorPosition().getRow(), 0),
+                     Position.create(docDisplay_.getCursorPosition().getRow(),
+                           docDisplay_.getCurrentLine().length())));
+
+      onReflowComment();
+      docDisplay_.setCursorPosition(
+            Position.create(
+                  docDisplay_.getSelectionEnd().getRow(),
+                  0));
+   }
+
+void doReflowComment(DocDisplay display, String commentPrefix, boolean multiParagraphIndent)
+   {
+      display.focus();
+
+      InputEditorSelection originalSelection = display.getSelection();
+      InputEditorSelection selection = originalSelection;
+
+      if (selection.isEmpty())
+      {
+         selection = selection.growToIncludeLines("^\\s*" + commentPrefix + ".*$");
+      }
+      else
+      {
+         selection = selection.shrinkToNonEmptyLines();
+         selection = selection.extendToLineStart();
+         selection = selection.extendToLineEnd();
+      }
+      if (selection.isEmpty())
+         return;
+
+      reflowComments(display,
+                     commentPrefix,
+                     multiParagraphIndent,
+                     selection,
+                     originalSelection.isEmpty() ?
+                     originalSelection.getStart() :
+                     null);
+   }
+
+   private void reflowComments(DocDisplay display,
+                               String commentPrefix,
+                               final boolean multiParagraphIndent,
+                               InputEditorSelection selection,
+                               final InputEditorPosition cursorPos)
+   {
+      String code = display.getCode(selection);
+      String[] lines = code.split("\n");
+      String prefix = StringUtil.getCommonPrefix(lines, true, false);
+      Pattern pattern = Pattern.create("^\\s*" + commentPrefix + "+('?)\\s*");
+      Match match = pattern.match(prefix, 0);
+      // Selection includes non-comments? Abort.
+      if (match == null)
+         return;
+      prefix = match.getValue();
+      final boolean roxygen = match.hasGroup(1);
+
+      int cursorRowIndex = 0;
+      int cursorColIndex = 0;
+      if (cursorPos != null)
+      {
+         cursorRowIndex = display.selectionToPosition(cursorPos).getRow() -
+                          display.selectionToPosition(selection.getStart()).getRow();
+         cursorColIndex =
+               Math.max(0, cursorPos.getPosition() - prefix.length());
+      }
+      final WordWrapCursorTracker wwct = new WordWrapCursorTracker(
+                                                cursorRowIndex, cursorColIndex);
+
+      int maxLineLength = prefs_.marginColumn().getValue() - prefix.length();
+
+      WordWrap wordWrap = new WordWrap(maxLineLength, false)
+      {
+         @Override
+         protected boolean forceWrapBefore(String line)
+         {
+            String trimmed = line.trim();
+            if (roxygen && trimmed.startsWith("@") && !trimmed.startsWith("@@"))
+            {
+               // Roxygen tags always need to be at the start of a line. If
+               // there is content immediately following the roxygen tag, then
+               // content should be wrapped until the next roxygen tag is
+               // encountered.
+
+               indent_ = "";
+               if (TAG_WITH_CONTENTS.match(line, 0) != null)
+               {
+                  indentRestOfLines_ = true;
+               }
+               return true;
+            }
+            // empty line disables indentation
+            else if (!multiParagraphIndent && (line.trim().length() == 0))
+            {
+               indent_ = "";
+               indentRestOfLines_ = false;
+            }
+
+            return super.forceWrapBefore(line);
+         }
+
+         @Override
+         protected void onChunkWritten(String chunk,
+                                       int insertionRow,
+                                       int insertionCol,
+                                       int indexInOriginalString)
+         {
+            if (indentRestOfLines_)
+            {
+               indentRestOfLines_ = false;
+               indent_ = "  "; // TODO: Use real indent from settings
+            }
+
+            wwct.onChunkWritten(chunk, insertionRow, insertionCol,
+                                indexInOriginalString);
+         }
+
+         private boolean indentRestOfLines_ = false;
+         private final Pattern TAG_WITH_CONTENTS = Pattern.create("@\\w+\\s+[^\\s]");
+      };
+
+      int macroDepth = 0;
+      boolean outsideMarkdown = true;
+      boolean bullet = false;
+      boolean inExamples = false;
+      
+      for (String line : lines)
+      {
+         wwct.onBeginInputRow();
+         
+         boolean isWrappingEnabled = wordWrap.getWrappingEnabled();
+         bullet = false;
+
+         String content = StringUtil.substring(line, Math.min(line.length(),
+                                                  prefix.length()));
+
+         if (content.matches("^\\s*\\@examples\\b.*$"))
+         {
+            wordWrap.setWrappingEnabled(false);
+            inExamples = true;
+            wordWrap.appendLine(content);
+         }
+         else if (content.trim().startsWith("@"))
+         {
+            wordWrap.setWrappingEnabled(true);
+            inExamples = false;
+            wordWrap.appendLine(content);
+         }
+         else if (inExamples)
+         {
+            // still in @examples, keep being disabled
+            wordWrap.appendLine(content);
+         }
+         else if (content.matches("^\\s*```.*")) 
+         {
+            wordWrap.setWrappingEnabled(false);
+            wordWrap.appendLine(content);
+            
+            outsideMarkdown = !outsideMarkdown;
+            wordWrap.setWrappingEnabled(outsideMarkdown);
+         }
+         else if (outsideMarkdown)
+         {
+            // the line is not in a markdown chunk
+            bullet = content.matches("^\\s*[-*].*");
+            if (bullet)
+            {
+               // this is a bullet line, temporarily disable
+               wordWrap.setWrappingEnabled(false);
+               wordWrap.appendLine(content);
+               wordWrap.setWrappingEnabled(isWrappingEnabled);
+            }
+            else 
+            {
+               int previousMacroDepth = macroDepth;
+               Pattern macro = Pattern.create("(\\{|\\})");
+               Match macroMatch = macro.match(content, 0);
+               while (macroMatch != null) 
+               {
+                  String value = macroMatch.getValue();
+                  if (value.contains("}")) 
+                     macroDepth--;
+                  else 
+                     macroDepth++;
+                  
+                  macroMatch = macroMatch.nextMatch();
+               }
+               if (macroDepth < 0)
+               {
+                  // should not happen, reset
+                  macroDepth = 0;
+               }
+
+               wordWrap.setWrappingEnabled(macroDepth == 0 && previousMacroDepth == 0);
+               wordWrap.appendLine(content);
+               
+            }
+         }
+         else
+         {
+            // the line is in a markdown chunk, disable for good measure
+            // but not necessary really, because was disabled when seeing the ```
+            wordWrap.setWrappingEnabled(false);
+            wordWrap.appendLine(content);
+         }
+
+      }
+
+      String wrappedString = wordWrap.getOutput();
+
+      StringBuilder finalOutput = new StringBuilder();
+      for (String line : StringUtil.getLineIterator(wrappedString))
+         finalOutput.append(prefix).append(line).append("\n");
+      // Remove final \n
+      if (finalOutput.length() > 0)
+         finalOutput.deleteCharAt(finalOutput.length()-1);
+
+      String reflowed = finalOutput.toString();
+
+      // Remove trailing whitespace that might have leaked in earlier
+      reflowed = reflowed.replaceAll("\\s+\\n", "\n");
+
+      display.setSelection(selection);
+      if (!reflowed.equals(code))
+      {
+         display.replaceSelection(reflowed);
+      }
+
+      if (cursorPos != null)
+      {
+         if (wwct.getResult() != null)
+         {
+            int row = wwct.getResult().getY();
+            int col = wwct.getResult().getX();
+            row += display.selectionToPosition(selection.getStart()).getRow();
+            col += prefix.length();
+            Position pos = Position.create(row, col);
+            display.setSelection(docDisplay_.createSelection(pos, pos));
+         }
+         else
+         {
+            display.collapseSelection(false);
+         }
+      }
+   }

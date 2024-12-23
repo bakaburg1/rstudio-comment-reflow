@@ -1,0 +1,16 @@
+RStudio Comment Reflow for VS Code
+Copyright (C) 2024 Angelo D'Ambrosio
+
+This software includes code adapted from RStudio (https://github.com/rstudio/rstudio/),
+specifically the comment reflow functionality from the RStudio IDE.
+
+RStudio is Copyright (C) 2009-2024 Posit Software, PBC (formerly RStudio)
+and is licensed under the GNU Affero General Public License version 3.
+
+The adapted code primarily comes from the following RStudio source files:
+- src/gwt/src/org/rstudio/studio/client/workbench/views/source/editors/text/TextEditingTarget.java
+- src/gwt/src/org/rstudio/studio/client/workbench/views/source/editors/text/DocDisplay.java
+
+This adaptation maintains compliance with the AGPL-3.0 license terms, and the complete
+source code of this extension is available at:
+https://github.com/bakaburg1/rstudio-comment-reflow 
