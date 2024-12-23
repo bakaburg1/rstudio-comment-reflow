@@ -251,6 +251,8 @@ function formatParagraph(paragraph: string[], block: CommentBlock, maxWidth: num
     // For Roxygen tags, preserve the tag at the start
     let prefix = '';
     let words: string[] = [];
+
+    words = paragraph.join(' ').split(/\s+/).filter(w => w.length > 0);
     
     if (isRoxygenTag) {
         // Extract the tag part (e.g., "@param name") and the description
@@ -258,34 +260,38 @@ function formatParagraph(paragraph: string[], block: CommentBlock, maxWidth: num
         const tagMatch = firstLine.match(/^(@\w+(?:\s+\S+)?)/);
         
         if (tagMatch) {
-            prefix = tagMatch[1] + ' ';
+            prefix = tagMatch[1];
+            
             // Remove the tag part from the first line and combine with rest
-            const remainingText = firstLine.substring(prefix.length).trim() + ' ' + 
+            const remainingText = firstLine.substring(prefix.length) + ' ' + 
                                 paragraph.slice(1).join(' ');
             words = remainingText.split(/\s+/).filter(w => w.length > 0);
-        } else {
-            words = paragraph.join(' ').split(/\s+/).filter(w => w.length > 0);
         }
-    } else {
-        words = paragraph.join(' ').split(/\s+/).filter(w => w.length > 0);
     }
 
     const lines: string[] = [];
     let currentLine = prefix; // Start with the Roxygen tag if present
 
     for (const word of words) {
+        // If the current line + word + space (if line is not empty) is less
+        // than or equal to maxWidth, add the word to the current line
         if (currentLine.length + word.length + (currentLine.length > 0 ? 1 : 0) <= maxWidth) {
+            // If the current line is empty, add the word without a space
             currentLine += (currentLine.length === 0 ? '' : ' ') + word;
         } else {
+            // The current line is full, so add it to the lines array
             if (currentLine.length > 0) {
-                lines.push(currentLine.trimEnd());
+                lines.push(currentLine);
             }
-            // For continuation lines in Roxygen tags, add appropriate indentation
+            // For continuation lines in Roxygen tags, add appropriate
+            // indentation
             currentLine = isRoxygenTag && lines.length > 0 ? '  ' + word : word;
         }
     }
+
+    // Add the last line if it's not empty
     if (currentLine.length > 0) {
-        lines.push(currentLine.trimEnd());
+        lines.push(currentLine);
     }
 
     // Format each line with the proper prefix and indentation and ensure no trailing spaces
