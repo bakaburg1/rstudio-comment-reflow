@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 
+// Create output channel for logging
+let outputChannel: vscode.OutputChannel;
+
 /**
  * Represents a comment block with its prefix and content
  */
@@ -13,21 +16,27 @@ interface CommentBlock {
  * Activates the extension
  */
 export function activate(context: vscode.ExtensionContext) {
-    // Log when the extension is activated
-    console.log('RStudio Comment Reflow extension is now active');
+    // Initialize output channel
+    outputChannel = vscode.window.createOutputChannel('RStudio Comment Reflow');
+    outputChannel.show();
+    
+    outputChannel.appendLine('RStudio Comment Reflow extension is now active');
+    outputChannel.appendLine(`OS: ${process.platform}`);
 
     let disposable = vscode.commands.registerCommand('rstudio-comment-reflow.reflowComment', () => {
-        console.log('Reflow Comment command triggered');
+        outputChannel.appendLine('Reflow Comment command triggered');
         
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
-            console.log('No active editor found');
+            outputChannel.appendLine('No active editor found');
             return;
         }
 
         reflowComment(editor);
     });
 
+    // Log registered keybinding
+    outputChannel.appendLine('Registered keybinding: ctrl+shift+BracketLeft');
     context.subscriptions.push(disposable);
 }
 
@@ -35,9 +44,15 @@ export function activate(context: vscode.ExtensionContext) {
  * Main function to handle comment reflowing
  */
 function reflowComment(editor: vscode.TextEditor) {
+    outputChannel.appendLine('Starting comment reflow');
+    
     const document = editor.document;
     const selection = editor.selection;
     const wordWrapColumn = vscode.workspace.getConfiguration('editor').get('wordWrapColumn', 80);
+
+    outputChannel.appendLine(`Current file: ${document.fileName}`);
+    outputChannel.appendLine(`Language ID: ${document.languageId}`);
+    outputChannel.appendLine(`Selection: ${selection.start.line}-${selection.end.line}`);
 
     // Get the current line if no selection
     let startLine = selection.start.line;
@@ -46,6 +61,7 @@ function reflowComment(editor: vscode.TextEditor) {
     if (selection.isEmpty) {
         const line = document.lineAt(startLine);
         if (!isCommentLine(line.text, document.languageId)) {
+            outputChannel.appendLine('Current line is not a comment line');
             return;
         }
     }
