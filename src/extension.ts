@@ -174,7 +174,7 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
                 result += formatParagraph(currentParagraph, block, actualMaxWidth, inList, isRoxygenTag) + '\n';
                 currentParagraph = [];
             }
-            result += block.originalIndentation + block.prefix + '\n';
+            result += (block.originalIndentation + block.prefix).trimEnd() + '\n';
             inList = false;
             isRoxygenTag = false;
             lastRoxygenTag = '';
@@ -188,13 +188,13 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
                 currentParagraph = [];
             }
             inCodeBlock = !inCodeBlock;
-            result += block.originalIndentation + block.prefix + line + '\n';
+            result += (block.originalIndentation + block.prefix + line).trimEnd() + '\n';
             continue;
         }
 
         // Don't reflow code blocks
         if (inCodeBlock) {
-            result += block.originalIndentation + block.prefix + line + '\n';
+            result += (block.originalIndentation + block.prefix + line).trimEnd() + '\n';
             continue;
         }
 
@@ -209,7 +209,7 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
 
             // Add a newline between different tags, but only if we're already in a Roxygen block
             if (isRoxygenTag && lastRoxygenTag && currentTag !== lastRoxygenTag) {
-                result += block.originalIndentation + block.prefix + '\n';
+                result += (block.originalIndentation + block.prefix).trimEnd() + '\n';
             }
 
             isRoxygenTag = true;
@@ -229,7 +229,7 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
                 result += formatParagraph(currentParagraph, block, actualMaxWidth, true, isRoxygenTag) + '\n';
                 currentParagraph = [];
             }
-            result += block.originalIndentation + block.prefix + line + '\n';
+            result += (block.originalIndentation + block.prefix + line).trimEnd() + '\n';
             continue;
         }
 
@@ -278,19 +278,19 @@ function formatParagraph(paragraph: string[], block: CommentBlock, maxWidth: num
             currentLine += (currentLine.length === 0 ? '' : ' ') + word;
         } else {
             if (currentLine.length > 0) {
-                lines.push(currentLine);
+                lines.push(currentLine.trimEnd());
             }
             // For continuation lines in Roxygen tags, add appropriate indentation
             currentLine = isRoxygenTag && lines.length > 0 ? '  ' + word : word;
         }
     }
     if (currentLine.length > 0) {
-        lines.push(currentLine);
+        lines.push(currentLine.trimEnd());
     }
 
-    // Format each line with the proper prefix and indentation
+    // Format each line with the proper prefix and indentation and ensure no trailing spaces
     return lines
-        .map(line => `${block.originalIndentation}${block.prefix}${line}`)
+        .map(line => `${block.originalIndentation}${block.prefix}${line}`.trimEnd())
         .join('\n');
 }
 
