@@ -201,12 +201,15 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
 
         // Pre-calculate Roxygen tag information for the current line
         const isNewTag = trimmedLine.startsWith('@') && !trimmedLine.startsWith('@@');
+        const isUnindentedTag = line.startsWith('@');
         let currentTag = '';
         
         if (isNewTag) {
             currentTag = trimmedLine.split(/\s+/)[0];
             // Toggle examples state if a new tag is encountered
-            inExamples = (currentTag === '@examples' || currentTag === '@examplesIf');
+            if (!inExamples || isUnindentedTag) {
+                inExamples = (currentTag === '@examples' || currentTag === '@examplesIf');
+            }
         }
 
         // Don't reflow examples block
