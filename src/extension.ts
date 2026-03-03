@@ -199,10 +199,13 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
             continue;
         }
 
-        // Check for Roxygen tags to toggle the inExamples state
-        if (trimmedLine.startsWith('@') && !trimmedLine.startsWith('@@')) {
-            const currentTag = trimmedLine.split(/\s+/)[0];
-            // Enter examples block if the tag is @examples or @examplesIf
+        // Pre-calculate Roxygen tag information for the current line
+        const isNewTag = trimmedLine.startsWith('@') && !trimmedLine.startsWith('@@');
+        let currentTag = '';
+        
+        if (isNewTag) {
+            currentTag = trimmedLine.split(/\s+/)[0];
+            // Toggle examples state if a new tag is encountered
             inExamples = (currentTag === '@examples' || currentTag === '@examplesIf');
         }
 
@@ -214,8 +217,7 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
             }
             
             // Retain the formatting logic for spacing out new tags
-            if (trimmedLine.startsWith('@') && !trimmedLine.startsWith('@@')) {
-                const currentTag = trimmedLine.split(/\s+/)[0];
+            if (isNewTag) {
                 if (isRoxygenTag && lastRoxygenTag && currentTag !== lastRoxygenTag) {
                     result += (block.originalIndentation + block.prefix).trimEnd() + '\n';
                 }
@@ -227,10 +229,8 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
             continue;
         }
 
-        // Handle Roxygen tags consistently with trimmedLine
-        if (trimmedLine.startsWith('@') && !trimmedLine.startsWith('@@')) {
-            const currentTag = trimmedLine.split(/\s+/)[0]; // Get the tag part (e.g., @param, @return)
-            
+        // Handle Roxygen tags consistently
+        if (isNewTag) {
             if (currentParagraph.length > 0) {
                 result += formatParagraph(currentParagraph, block, actualMaxWidth, inList, isRoxygenTag) + '\n';
                 currentParagraph = [];
