@@ -251,8 +251,8 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
             continue;
         }
 
-        // Handle bullet points
-        if (line.match(/^\s*[-*]\s/)) {
+        // Handle bullet points and numbered lists
+        if (line.match(/^\s*([-*]|\d+\.)\s/)) {
             if (!inList && currentParagraph.length > 0) {
                 result += formatParagraph(currentParagraph, block, actualMaxWidth, false, isRoxygenTag) + '\n';
                 currentParagraph = [];
