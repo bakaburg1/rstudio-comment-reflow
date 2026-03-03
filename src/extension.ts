@@ -262,7 +262,7 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
                 result += formatParagraph(currentParagraph, block, actualMaxWidth, true, isRoxygenTag) + '\n';
                 currentParagraph = [];
             }
-            result += (block.originalIndentation + block.prefix + line).trimEnd() + '\n';
+            currentParagraph.push(line);
             continue;
         }
 
@@ -302,6 +302,15 @@ function formatParagraph(paragraph: string[], block: CommentBlock, maxWidth: num
         }
     }
 
+    // Calculate hanging indent for lists based on the bullet/number length
+    let listIndent = '';
+    if (isList && paragraph.length > 0) {
+        const listMatch = paragraph[0].match(/^(\s*([-*]|\d+\.)\s+)/);
+        if (listMatch) {
+            listIndent = ' '.repeat(listMatch[1].length);
+        }
+    }
+
     const lines: string[] = [];
     let currentLine = prefix; // Start with the Roxygen tag if present
 
@@ -316,9 +325,14 @@ function formatParagraph(paragraph: string[], block: CommentBlock, maxWidth: num
             if (currentLine.length > 0) {
                 lines.push(currentLine);
             }
-            // For continuation lines in Roxygen tags, add appropriate
-            // indentation
-            currentLine = isRoxygenTag && lines.length > 0 ? '  ' + word : word;
+            // For continuation lines, add appropriate indentation
+            if (isRoxygenTag && lines.length > 0) {
+                currentLine = '  ' + word;
+            } else if (isList && lines.length > 0) {
+                currentLine = listIndent + word;
+            } else {
+                currentLine = word;
+            }
         }
     }
 
