@@ -134,9 +134,9 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
         // Remove the prefix and any leading/trailing whitespace
         let content = text;
         if (isRoxygen) {
-            const roxyMatch = text.match(/^(\s*#'\s*)(.*)/);
+            const roxyMatch = text.match(/^\s*#'\s?(.*)/);
             if (roxyMatch) {
-                content = roxyMatch[2];
+                content = roxyMatch[1].trimEnd();
             }
         } else {
             content = text.substring(text.indexOf(prefix) + prefix.length).trim();
