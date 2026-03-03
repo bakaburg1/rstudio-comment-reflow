@@ -227,9 +227,9 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
             continue;
         }
 
-        // Handle Roxygen tags
-        if (line.startsWith('@') && !line.startsWith('@@')) {
-            const currentTag = line.split(/\s+/)[0]; // Get the tag part (e.g., @param, @return)
+        // Handle Roxygen tags consistently with trimmedLine
+        if (trimmedLine.startsWith('@') && !trimmedLine.startsWith('@@')) {
+            const currentTag = trimmedLine.split(/\s+/)[0]; // Get the tag part (e.g., @param, @return)
             
             if (currentParagraph.length > 0) {
                 result += formatParagraph(currentParagraph, block, actualMaxWidth, inList, isRoxygenTag) + '\n';
