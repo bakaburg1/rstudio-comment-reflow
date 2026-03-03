@@ -305,9 +305,13 @@ function formatParagraph(paragraph: string[], block: CommentBlock, maxWidth: num
     // Calculate hanging indent for lists based on the bullet/number length
     let listIndent = '';
     if (isList && paragraph.length > 0) {
-        const listMatch = paragraph[0].match(/^(\s*([-*]|\d+\.)\s+)/);
+        const listMatch = paragraph[0].match(/^\s*([-*]|\d+\.)\s+/);
         if (listMatch) {
-            listIndent = ' '.repeat(listMatch[1].length);
+            // Calculate indent from marker + space only, excluding leading whitespace
+            const markerMatch = listMatch[0].match(/([-*]|\d+\.)\s+/);
+            if (markerMatch) {
+                listIndent = ' '.repeat(markerMatch[0].length);
+            }
         }
     }
 
