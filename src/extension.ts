@@ -202,6 +202,7 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
         // Pre-calculate Roxygen tag information for the current line
         const isNewTag = trimmedLine.startsWith('@') && !trimmedLine.startsWith('@@');
         const isUnindentedTag = line.startsWith('@');
+        const isStructuralTag = isNewTag && isUnindentedTag;
         let currentTag = '';
         
         if (isNewTag) {
@@ -220,7 +221,7 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
             }
             
             // Retain the formatting logic for spacing out new tags
-            if (isNewTag) {
+            if (isStructuralTag) {
                 if (isRoxygenTag && lastRoxygenTag && currentTag !== lastRoxygenTag) {
                     result += (block.originalIndentation + block.prefix).trimEnd() + '\n';
                 }
