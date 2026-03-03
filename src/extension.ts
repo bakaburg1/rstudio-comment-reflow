@@ -160,14 +160,17 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
     let result = '';
     let currentParagraph: string[] = [];
     let inCodeBlock = false;
+    let inExamples = false;
     let inList = false;
     let isRoxygenTag = false;
     let lastRoxygenTag = '';
 
     // Process each line
     for (const line of block.content) {
+        const trimmedLine = line.trim();
+
         // Handle empty lines - they separate paragraphs
-        if (line.trim().length === 0) {
+        if (trimmedLine.length === 0) {
             if (currentParagraph.length > 0) {
                 result += formatParagraph(currentParagraph, block, actualMaxWidth, inList, isRoxygenTag) + '\n';
                 currentParagraph = [];
@@ -180,7 +183,7 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
         }
 
         // Handle code blocks (marked with ```)
-        if (line.trim().startsWith('```')) {
+        if (trimmedLine.startsWith('```')) {
             if (currentParagraph.length > 0) {
                 result += formatParagraph(currentParagraph, block, actualMaxWidth, inList, isRoxygenTag) + '\n';
                 currentParagraph = [];
@@ -192,6 +195,34 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
 
         // Don't reflow code blocks
         if (inCodeBlock) {
+            result += (block.originalIndentation + block.prefix + line).trimEnd() + '\n';
+            continue;
+        }
+
+        // Check for Roxygen tags to toggle the inExamples state
+        if (trimmedLine.startsWith('@') && !trimmedLine.startsWith('@@')) {
+            const currentTag = trimmedLine.split(/\s+/)[0];
+            // Enter examples block if the tag is @examples or @examplesIf
+            inExamples = (currentTag === '@examples' || currentTag === '@examplesIf');
+        }
+
+        // Don't reflow examples block
+        if (inExamples) {
+            if (currentParagraph.length > 0) {
+                result += formatParagraph(currentParagraph, block, actualMaxWidth, inList, isRoxygenTag) + '\n';
+                currentParagraph = [];
+            }
+            
+            // Retain the formatting logic for spacing out new tags
+            if (trimmedLine.startsWith('@') && !trimmedLine.startsWith('@@')) {
+                const currentTag = trimmedLine.split(/\s+/)[0];
+                if (isRoxygenTag && lastRoxygenTag && currentTag !== lastRoxygenTag) {
+                    result += (block.originalIndentation + block.prefix).trimEnd() + '\n';
+                }
+                isRoxygenTag = true;
+                lastRoxygenTag = currentTag;
+            }
+
             result += (block.originalIndentation + block.prefix + line).trimEnd() + '\n';
             continue;
         }
