@@ -285,12 +285,10 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
  * Formats a paragraph to fit within the specified width
  */
 function formatParagraph(paragraph: string[], block: CommentBlock, maxWidth: number, isList: boolean, isRoxygenTag: boolean): string {
-    // For Roxygen tags, preserve the tag at the start
     let prefix = '';
+    let listIndent = '';
     let words: string[] = [];
 
-    words = paragraph.join(' ').split(/\s+/).filter(w => w.length > 0);
-    
     if (isRoxygenTag) {
         // Extract the tag part (e.g., "@param name") and the description
         const firstLine = paragraph[0];
@@ -298,26 +296,37 @@ function formatParagraph(paragraph: string[], block: CommentBlock, maxWidth: num
         
         if (tagMatch) {
             prefix = tagMatch[1];
-            
             // Remove the tag part from the first line and combine with rest
-            const remainingText = firstLine.substring(prefix.length) + ' ' + 
-                                paragraph.slice(1).join(' ');
+            const remainingText = firstLine.substring(prefix.length) + ' ' + paragraph.slice(1).join(' ');
             words = remainingText.split(/\s+/).filter(w => w.length > 0);
+        } else {
+            words = paragraph.join(' ').split(/\s+/).filter(w => w.length > 0);
         }
-    }
-
-    // Calculate hanging indent for lists based on the bullet/number length
-    let listIndent = '';
-    if (isList && paragraph.length > 0) {
-        const listMatch = paragraph[0].match(/^\s*([-*]|\d+\.)\s+/);
+    } else if (isList && paragraph.length > 0) {
+        const firstLine = paragraph[0];
+        // Match leading space, the marker, and trailing spaces
+        const listMatch = firstLine.match(/^(\s*)([-*]|\d+\.)\s+/);
+        
         if (listMatch) {
-            // Normalize continuation indent to marker width + one space
-            listIndent = ' '.repeat(listMatch[1].length + 1);
+            const leadingSpace = listMatch[1];
+            const marker = listMatch[2];
+            prefix = leadingSpace + marker;
+            
+            // Calculate hanging indent: leading spaces + marker length + 1 space
+            listIndent = ' '.repeat(leadingSpace.length + marker.length + 1);
+            
+            // Extract words from the text after the list marker
+            const remainingText = firstLine.substring(listMatch[0].length) + ' ' + paragraph.slice(1).join(' ');
+            words = remainingText.split(/\s+/).filter(w => w.length > 0);
+        } else {
+            words = paragraph.join(' ').split(/\s+/).filter(w => w.length > 0);
         }
+    } else {
+        words = paragraph.join(' ').split(/\s+/).filter(w => w.length > 0);
     }
 
     const lines: string[] = [];
-    let currentLine = prefix; // Start with the Roxygen tag if present
+    let currentLine = prefix; // Start with the prefix (Roxygen tag or list marker)
 
     for (const word of words) {
         // If the current line + word + space (if line is not empty) is less
