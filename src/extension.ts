@@ -1,14 +1,19 @@
 import * as vscode from 'vscode';
 
-// Create output channel for logging
+/**
+ * Output channel for logging extension events
+ */
 let outputChannel: vscode.OutputChannel;
 
 /**
  * Represents a comment block with its prefix and content
  */
 interface CommentBlock {
+    /** The comment character or prefix used */
     prefix: string;
+    /** The text content of the comment block */
     content: string[];
+    /** The whitespace occurring before the comment prefix */
     originalIndentation: string;
 }
 
@@ -348,4 +353,7 @@ function formatParagraph(paragraph: string[], block: CommentBlock, maxWidth: num
         .join('\n');
 }
 
+/**
+ * Deactivates the extension
+ */
 export function deactivate() {} 
