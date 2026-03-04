@@ -127,17 +127,29 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
             // Detect if this is a Roxygen comment block
             isRoxygen = text.trim().startsWith("#'");
             // Detect the comment prefix and indentation from the first line
+            // Matches block comment opens (/* or /**), Roxygen (#' ), hashes (# ), slashes (// ), or asterisks (* )
             const match = text.match(/^(\s*)(\/\*+\s*|#'\s*|#+\s*|\/\/\s*|\*+\s+)/);
             if (!match) {
                 return null;
             }
             originalIndentation = match[1];
             prefix = match[2];
+
+            // Bail out for C-style block comments as they require dedicated multiline handling
+            if (prefix.includes('/*')) {
+                return null;
+            }
+        }
+
+        // Bail out if we hit a closing block comment marker anywhere
+        if (text.includes('*/')) {
+            return null;
         }
 
         // Remove the prefix and any leading/trailing whitespace
         let content = text;
         if (isRoxygen) {
+            // Match the prefix (#' plus up to one space) and capture the rest
             const roxyMatch = text.match(/^\s*#'\s?(.*)/);
             if (roxyMatch) {
                 content = roxyMatch[1].trimEnd();
