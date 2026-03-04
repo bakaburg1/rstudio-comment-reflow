@@ -121,9 +121,6 @@ function isCommentLine(line: string, languageId: string): boolean {
 /**
  * Extracts the comment block from the document
  */
-/**
- * Extracts the comment block from the document
- */
 function extractCommentBlock(document: vscode.TextDocument, startLine: number, endLine: number): CommentBlock | null {
     const lines = [];
     let prefix = '';
