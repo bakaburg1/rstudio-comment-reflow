@@ -247,7 +247,7 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
 
             isRoxygenTag = true;
             lastRoxygenTag = currentTag;
-            currentParagraph.push(line);
+            currentParagraph.push(trimmedLine);
             continue;
         }
 
