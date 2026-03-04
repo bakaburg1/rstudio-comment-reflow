@@ -23,7 +23,6 @@ interface CommentBlock {
 export function activate(context: vscode.ExtensionContext) {
     // Initialize output channel
     outputChannel = vscode.window.createOutputChannel('RStudio Comment Reflow');
-    outputChannel.show();
     
     outputChannel.appendLine('RStudio Comment Reflow extension is now active');
     outputChannel.appendLine(`OS: ${process.platform}`);
@@ -128,7 +127,7 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
             // Detect if this is a Roxygen comment block
             isRoxygen = text.trim().startsWith("#'");
             // Detect the comment prefix and indentation from the first line
-            const match = text.match(/^(\s*)([#']+\s*|\*\s+)/);
+            const match = text.match(/^(\s*)(#'\s*|#+\s*|\/\/\s*|\*\s+)/);
             if (!match) {
                 return null;
             }
@@ -356,4 +355,8 @@ function formatParagraph(paragraph: string[], block: CommentBlock, maxWidth: num
 /**
  * Deactivates the extension
  */
-export function deactivate() {} 
+export function deactivate() {
+    if (outputChannel) {
+        outputChannel.dispose();
+    }
+}
