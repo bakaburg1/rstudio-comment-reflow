@@ -129,10 +129,11 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
     let isCStyleBlock = false;
     let cStyleOpener = '/*';
 
-    // Pre-scan for a standalone closer to detect partial block selections
-    const hasStandaloneCStyleCloser = (() => {
+    // Pre-scan for a leading C-style closer to detect partial block selections
+    // (covers both standalone `*/` and `*/ ...` on the same line)
+    const hasLeadingCStyleCloser = (() => {
         for (let j = startLine; j <= endLine; j++) {
-            if (/^\s*\*\/\s*$/.test(document.lineAt(j).text)) {
+            if (/^\s*\*\/(?:\s*\S.*)?$/.test(document.lineAt(j).text)) {
                 return true;
             }
         }
@@ -157,7 +158,7 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
             prefix = match[2];
             isCStyleBlock = prefix.includes('/*');
 
-            if (!isCStyleBlock && hasStandaloneCStyleCloser) {
+            if (!isCStyleBlock && hasLeadingCStyleCloser) {
                 // Likely started inside a C-style block whose opener is outside this range.
                 // Bail out to avoid corrupting the closer/opener structure.
                 return null;
