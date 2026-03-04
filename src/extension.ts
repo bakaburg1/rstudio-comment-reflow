@@ -176,9 +176,11 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
                     content = content.substring(openerMatch[0].length);
                 }
             } else {
-                const starMatch = content.match(/^(\s*)(\*+\s*)/);
+                const starMatch = content.match(/^(\s*)\*+\s?(.*)$/);
                 if (starMatch) {
-                    content = content.substring(starMatch[0].length);
+                    // Remove leading '*' and at most one separator space,
+                    // while preserving additional indentation as content.
+                    content = starMatch[2];
                 } else {
                     content = content.trimStart();
                 }
