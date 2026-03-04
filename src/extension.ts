@@ -287,9 +287,7 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
         if (isStructuralTag) {
             currentTag = trimmedLine.split(/\s+/)[0];
             // Toggle examples state if a new tag is encountered
-            if (!inExamples || isUnindentedTag) {
-                inExamples = (currentTag === '@examples' || currentTag === '@examplesIf');
-            }
+            inExamples = (currentTag === '@examples' || currentTag === '@examplesIf');
         }
 
         // Track macro depth only when not inside `@examples`
