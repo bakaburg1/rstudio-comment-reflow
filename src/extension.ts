@@ -141,8 +141,8 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
             }
         }
 
-        // Bail out if we hit a closing block comment marker anywhere
-        if (text.includes('*/')) {
+        // Bail out only on an actual standalone block-comment closer
+        if (/^\s*\*\/\s*$/.test(text)) {
             return null;
         }
 
