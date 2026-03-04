@@ -121,6 +121,9 @@ function isCommentLine(line: string, languageId: string): boolean {
 /**
  * Extracts the comment block from the document
  */
+/**
+ * Extracts the comment block from the document
+ */
 function extractCommentBlock(document: vscode.TextDocument, startLine: number, endLine: number): CommentBlock | null {
     const lines = [];
     let prefix = '';
@@ -134,9 +137,14 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
         const text = line.text;
 
         if (i === startLine) {
+            // Detect if this is a Roxygen comment block
             isRoxygen = text.trim().startsWith("#'");
+            
+            // Detect the comment prefix and indentation from the first line
             const match = text.match(/^(\s*)(\/\*+\s*|#'\s*|#+\s*|\/\/\s*|\*+\s+)/);
-            if (!match) return null;
+            if (!match) {
+                return null;
+            }
             
             originalIndentation = match[1];
             prefix = match[2];
@@ -151,6 +159,11 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
         let content = text;
         
         if (isCStyleBlock) {
+            // Avoid rewriting inline block comments that have code/text after the closer.
+            if (/\*\/\s*\S/.test(text)) {
+                return null;
+            }
+
             // Skip standalone closing lines (we'll re-add the closer later)
             if (/^\s*\*\/\s*$/.test(text)) {
                 continue; 
@@ -161,20 +174,21 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
             
             // Strip the opener on the first line, or the leading * on subsequent lines
             if (i === startLine) {
-                 const openerMatch = content.match(/^(\s*)(\/\*+\s*)/);
-                 if (openerMatch) {
-                     content = content.substring(openerMatch[0].length);
-                 }
+                const openerMatch = content.match(/^(\s*)(\/\*+\s*)/);
+                if (openerMatch) {
+                    content = content.substring(openerMatch[0].length);
+                }
             } else {
-                 const starMatch = content.match(/^(\s*)(\*+\s*)/);
-                 if (starMatch) {
-                     content = content.substring(starMatch[0].length);
-                 } else {
-                     content = content.trimStart();
-                 }
+                const starMatch = content.match(/^(\s*)(\*+\s*)/);
+                if (starMatch) {
+                    content = content.substring(starMatch[0].length);
+                } else {
+                    content = content.trimStart();
+                }
             }
             content = content.trimEnd();
         } else if (isRoxygen) {
+            // Match the prefix (#' plus up to one space) and capture the rest
             const roxyMatch = text.match(/^\s*#'\s?(.*)/);
             if (roxyMatch) {
                 content = roxyMatch[1].trimEnd();
@@ -184,7 +198,9 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
         }
         
         // Skip adding the first line if it was just the opening `/**` with no text
-        if (isCStyleBlock && i === startLine && content === '') continue;
+        if (isCStyleBlock && i === startLine && content === '') {
+            continue;
+        }
         
         lines.push(content);
     }
