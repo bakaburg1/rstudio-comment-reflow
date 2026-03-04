@@ -282,6 +282,29 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
             }
         }
 
+        // Track macro depth only when not inside `@examples`
+        if (!inExamples) {
+            const previousMacroDepth = macroDepth;
+            const braces = line.match(/\{|\}/g);
+            if (braces) {
+                for (const brace of braces) {
+                    if (brace === '{') macroDepth++;
+                    else if (brace === '}') macroDepth--;
+                }
+            }
+            if (macroDepth < 0) macroDepth = 0;
+
+            // If currently inside a macro block, append directly without reflowing
+            if (previousMacroDepth > 0 || macroDepth > 0) {
+                if (currentParagraph.length > 0) {
+                    result += formatParagraph(currentParagraph, block, actualMaxWidth, inList, isRoxygenTag) + '\n';
+                    currentParagraph = [];
+                }
+                result += (block.originalIndentation + block.prefix + line).trimEnd() + '\n';
+                continue;
+            }
+        }
+
         // Don't reflow examples block
         if (inExamples) {
             if (currentParagraph.length > 0) {
