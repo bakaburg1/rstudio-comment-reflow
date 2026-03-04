@@ -15,6 +15,8 @@ interface CommentBlock {
     content: string[];
     /** The whitespace occurring before the comment prefix */
     originalIndentation: string;
+    isCStyleBlock?: boolean;
+    cStyleOpener?: string;
 }
 
 /**
@@ -81,8 +83,14 @@ function reflowComment(editor: vscode.TextEditor) {
         return;
     }
 
-    const reflowedText = reflowCommentBlock(commentBlock, wordWrapColumn);
+    let reflowedText = reflowCommentBlock(commentBlock, wordWrapColumn);
     
+    if (commentBlock.isCStyleBlock) {
+        const opener = `${commentBlock.originalIndentation}${commentBlock.cStyleOpener}\n`;
+        const closer = `\n${commentBlock.originalIndentation} */`;
+        reflowedText = opener + reflowedText + closer;
+    }
+
     editor.edit(editBuilder => {
         const range = new vscode.Range(
             new vscode.Position(startLine, 0),
@@ -118,38 +126,55 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
     let prefix = '';
     let originalIndentation = '';
     let isRoxygen = false;
+    let isCStyleBlock = false;
+    let cStyleOpener = '/*';
 
     for (let i = startLine; i <= endLine; i++) {
         const line = document.lineAt(i);
         const text = line.text;
 
         if (i === startLine) {
-            // Detect if this is a Roxygen comment block
             isRoxygen = text.trim().startsWith("#'");
-            // Detect the comment prefix and indentation from the first line
-            // Matches block comment opens (/* or /**), Roxygen (#' ), hashes (# ), slashes (// ), or asterisks (* )
             const match = text.match(/^(\s*)(\/\*+\s*|#'\s*|#+\s*|\/\/\s*|\*+\s+)/);
-            if (!match) {
-                return null;
-            }
+            if (!match) return null;
+            
             originalIndentation = match[1];
             prefix = match[2];
-
-            // Bail out for C-style block comments as they require dedicated multiline handling
-            if (prefix.includes('/*')) {
-                return null;
+            isCStyleBlock = prefix.includes('/*');
+            
+            if (isCStyleBlock) {
+                cStyleOpener = prefix.trim(); // Capture whether it's /* or /**
+                prefix = ' * '; // Standardize the prefix for the middle lines
             }
         }
 
-        // Bail out only on an actual standalone block-comment closer
-        if (/^\s*\*\/\s*$/.test(text)) {
-            return null;
-        }
-
-        // Remove the prefix and any leading/trailing whitespace
         let content = text;
-        if (isRoxygen) {
-            // Match the prefix (#' plus up to one space) and capture the rest
+        
+        if (isCStyleBlock) {
+            // Skip standalone closing lines (we'll re-add the closer later)
+            if (/^\s*\*\/\s*$/.test(text)) {
+                continue; 
+            }
+            
+            // Strip the closer if it's on the same line as text
+            content = content.replace(/\*\/\s*$/, '');
+            
+            // Strip the opener on the first line, or the leading * on subsequent lines
+            if (i === startLine) {
+                 const openerMatch = content.match(/^(\s*)(\/\*+\s*)/);
+                 if (openerMatch) {
+                     content = content.substring(openerMatch[0].length);
+                 }
+            } else {
+                 const starMatch = content.match(/^(\s*)(\*+\s*)/);
+                 if (starMatch) {
+                     content = content.substring(starMatch[0].length);
+                 } else {
+                     content = content.trimStart();
+                 }
+            }
+            content = content.trimEnd();
+        } else if (isRoxygen) {
             const roxyMatch = text.match(/^\s*#'\s?(.*)/);
             if (roxyMatch) {
                 content = roxyMatch[1].trimEnd();
@@ -158,13 +183,18 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
             content = text.substring(text.indexOf(prefix) + prefix.length).trim();
         }
         
+        // Skip adding the first line if it was just the opening `/**` with no text
+        if (isCStyleBlock && i === startLine && content === '') continue;
+        
         lines.push(content);
     }
 
     return {
-        prefix: isRoxygen ? "#' " : prefix,
+        prefix: isRoxygen ? "#' " : (isCStyleBlock ? " * " : prefix),
         content: lines,
-        originalIndentation
+        originalIndentation,
+        isCStyleBlock,
+        cStyleOpener
     };
 }
 
@@ -180,6 +210,7 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
     let inList = false;
     let isRoxygenTag = false;
     let lastRoxygenTag = '';
+    let macroDepth = 0;
 
     // Process each line
     for (const line of block.content) {
@@ -215,13 +246,35 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
             continue;
         }
 
+        // Track macro depth to prevent reflowing structural braces
+        const previousMacroDepth = macroDepth;
+        const braces = line.match(/\{|\}/g);
+        if (braces) {
+            for (const brace of braces) {
+                if (brace === '{') macroDepth++;
+                else if (brace === '}') macroDepth--;
+            }
+        }
+        if (macroDepth < 0) macroDepth = 0;
+
+        // If currently inside a macro block, append directly without reflowing
+        if (previousMacroDepth > 0 || macroDepth > 0) {
+            if (currentParagraph.length > 0) {
+                result += formatParagraph(currentParagraph, block, actualMaxWidth, inList, isRoxygenTag) + '\n';
+                currentParagraph = [];
+            }
+            result += (block.originalIndentation + block.prefix + line).trimEnd() + '\n';
+            continue;
+        }
+
         // Pre-calculate Roxygen tag information for the current line
-        const isNewTag = trimmedLine.startsWith('@') && !trimmedLine.startsWith('@@');
+        const isRoxygenBlock = block.prefix.startsWith("#'");
+        const isNewTag = isRoxygenBlock && trimmedLine.startsWith('@') && !trimmedLine.startsWith('@@');
         const isUnindentedTag = line.startsWith('@');
         const isStructuralTag = isNewTag && isUnindentedTag;
         let currentTag = '';
         
-        if (isNewTag) {
+        if (isStructuralTag) {
             currentTag = trimmedLine.split(/\s+/)[0];
             // Toggle examples state if a new tag is encountered
             if (!inExamples || isUnindentedTag) {
@@ -250,7 +303,7 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
         }
 
         // Handle Roxygen tags consistently
-        if (isNewTag) {
+        if (isStructuralTag) {
             if (currentParagraph.length > 0) {
                 result += formatParagraph(currentParagraph, block, actualMaxWidth, inList, isRoxygenTag) + '\n';
                 currentParagraph = [];
@@ -268,7 +321,9 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
         }
 
         // Handle bullet points and numbered lists
-        if (line.match(/^\s*([-*]|\d+\.)\s/)) {
+        const isListItem = line.match(/^\s*([-*]|\d+\.)\s/);
+        
+        if (isListItem) {
             if (!inList && currentParagraph.length > 0) {
                 result += formatParagraph(currentParagraph, block, actualMaxWidth, false, isRoxygenTag) + '\n';
                 currentParagraph = [];
@@ -280,6 +335,15 @@ function reflowCommentBlock(block: CommentBlock, maxWidth: number): string {
             }
             currentParagraph.push(line);
             continue;
+        } else if (inList) {
+            // Reset list state if we encounter a completely unindented line
+            if (line.length > 0 && !line.match(/^\s+/)) {
+                if (currentParagraph.length > 0) {
+                    result += formatParagraph(currentParagraph, block, actualMaxWidth, true, isRoxygenTag) + '\n';
+                    currentParagraph = [];
+                }
+                inList = false;
+            }
         }
 
         currentParagraph.push(line);
