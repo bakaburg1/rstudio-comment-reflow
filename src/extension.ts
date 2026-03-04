@@ -129,6 +129,16 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
     let isCStyleBlock = false;
     let cStyleOpener = '/*';
 
+    // Pre-scan for a standalone closer to detect partial block selections
+    const hasStandaloneCStyleCloser = (() => {
+        for (let j = startLine; j <= endLine; j++) {
+            if (/^\s*\*\/\s*$/.test(document.lineAt(j).text)) {
+                return true;
+            }
+        }
+        return false;
+    })();
+
     for (let i = startLine; i <= endLine; i++) {
         const line = document.lineAt(i);
         const text = line.text;
@@ -146,6 +156,12 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
             originalIndentation = match[1];
             prefix = match[2];
             isCStyleBlock = prefix.includes('/*');
+
+            if (!isCStyleBlock && hasStandaloneCStyleCloser) {
+                // Likely started inside a C-style block whose opener is outside this range.
+                // Bail out to avoid corrupting the closer/opener structure.
+                return null;
+            }
             
             if (isCStyleBlock) {
                 cStyleOpener = prefix.trim(); // Capture whether it's /* or /**
