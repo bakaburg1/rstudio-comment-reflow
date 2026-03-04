@@ -127,7 +127,7 @@ function extractCommentBlock(document: vscode.TextDocument, startLine: number, e
             // Detect if this is a Roxygen comment block
             isRoxygen = text.trim().startsWith("#'");
             // Detect the comment prefix and indentation from the first line
-            const match = text.match(/^(\s*)(#'\s*|#+\s*|\/\/\s*|\*\s+)/);
+            const match = text.match(/^(\s*)(\/\*+\s*|#'\s*|#+\s*|\/\/\s*|\*+\s+)/);
             if (!match) {
                 return null;
             }
